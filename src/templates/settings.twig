@@ -25,6 +25,14 @@
 }) }}
 
 {{ forms.lightswitchField({
+    label: gateway.getAttributeLabel('use_hpp'),
+    name: 'use_hpp',
+    on: gateway.use_hpp,
+    instructions: 'Use Klarna Hosted Payment Page for checkout' | t('klarna-checkout'),
+    errors: gateway.getErrors('use_hpp')
+}) }}
+
+{{ forms.lightswitchField({
     label: gateway.getAttributeLabel('send_product_urls'),
     name: 'send_product_urls',
     on: gateway.send_product_urls,

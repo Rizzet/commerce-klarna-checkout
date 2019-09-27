@@ -110,6 +110,13 @@ class KlarnaCheckout extends BaseGateway
 	 */
 	public $api_eu_title_mandatory = false;
 
+    /**
+     * Setting: Use HPP
+     *
+     * @var string
+     */
+    public $use_hpp = false;
+
 	/**
 	 * Setting: Consent Notice
 	 *
@@ -639,6 +646,7 @@ class KlarnaCheckout extends BaseGateway
 					'send_product_urls',
 					'log_debug_messages',
 					'test_mode',
+                    'use_hpp',
 					'mandatory_date_of_birth',
 					'api_eu_title_mandatory',
 					'api_eu_consent_notice',
@@ -665,6 +673,7 @@ class KlarnaCheckout extends BaseGateway
 			'api_eu_test_password' => 'Test Password',
 			'api_us_uid' => 'Production Username (UID)',
 			'api_us_password' => 'Production Password',
+            'use_hpp' => 'Use HPP',
 			'api_us_test_uid' => 'Test Username (UID)',
 			'api_us_test_password' => 'Test Password',
 			'send_product_urls' => 'Send Product URLs',
