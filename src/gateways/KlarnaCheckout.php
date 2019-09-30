@@ -15,8 +15,10 @@ use craft\web\Response as WebResponse;
 use ellera\commerce\klarna\models\KlarnaOrder;
 use ellera\commerce\klarna\models\KlarnaPaymentForm;
 use ellera\commerce\klarna\models\KlarnaResponse;
+use yii\base\ErrorException;
 use yii\base\InvalidConfigException;
 use yii\web\BadRequestHttpException;
+use craft\helpers\UrlHelper;
 
 /**
  * Klarna represents the KCOv3 gateway
@@ -525,6 +527,10 @@ class KlarnaCheckout extends BaseGateway
 	public function getPaymentFormHtml(array $params)
 	{
 		$order = $this->createCheckoutOrder();
+        if($this->use_hpp) {
+            $redirect_url = $this->createHPPSession($order);
+            return '<a href="'.$redirect_url.'">Continue to Klarna</a>';
+        }
 		return $order->getHtmlSnippet();
 	}
 
@@ -557,6 +563,82 @@ class KlarnaCheckout extends BaseGateway
 
 		return new KlarnaOrder($response);
 	}
+
+    /**
+     * @param KlarnaOrder $order
+     * @return string
+     * @throws ErrorException
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     */
+	private function createHPPSession(KlarnaOrder $order) : string
+    {
+        /** @var KlarnaResponse $response */
+        try {
+            $response = $this->getKlarnaResponse('POST', '/hpp/v1/sessions', [
+                'merchant_urls' => [
+                    'back' => $this->getStoreUrl().$this->terms,
+                    'cancel' => $this->getStoreUrl().$this->terms,
+                    'error' => $this->getStoreUrl().$this->terms,
+                    'failure' => $this->getStoreUrl().$this->terms,
+                    'privacy_policy' => $this->getStoreUrl().$this->terms,
+                    'status_update' => $this->getStoreUrl().$this->terms,
+                    'success' => $this->getStoreUrl().$this->terms,
+                    'terms' => $this->getStoreUrl().$this->terms,
+                ],
+                'options' => [
+                    'background_images' => [
+                        [
+                            'url' => 'https://images2.minutemediacdn.com/image/upload/c_crop,h_1193,w_2121,x_0,y_64/f_auto,q_auto,w_1100/v1565279671/shape/mentalfloss/578211-gettyimages-542930526.jpg',
+                            'width' => 2121
+                        ]
+                    ],
+                    'logo_url' => '',
+                    'page_title' => Craft::$app->sites->getCurrentSite()->name,
+                    'payment_fallback' => true,
+                    //'payment_method_categories' => '',
+                    //'payment_method_category' => '',
+                    //'purchase_type' => ''
+                ],
+                'payment_session_url' => ($this->test_mode ? 'https://api.playground.klarna.com/checkout/v3/orders/' : 'https://api.klarna.com/checkout/v3/orders/') . $order->getOrderId()
+            ]);
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $this->log("Response ". $e->getCode() . ': ' . $e->getResponse()->getBody());
+            throw new ErrorException('Something went wrong with Klarna. Check the klarna-log for additional information.');
+        }
+        /*
+        $order = new KlarnaOrder($response);
+
+        $transaction->note = 'Created Klarna Order';
+        $transaction->response = $response->get();
+        $transaction->order->returnUrl = $transaction->gateway->push.'?number='.$transaction->order->number;
+        $transaction->order->cancelUrl = $transaction->gateway->checkout;
+
+        $order->getOrderId() ? $transaction->status = 'redirect' : $transaction->status = 'failed';
+
+        if($response->isSuccessful()) $this->log('Authorized order '.$transaction->order->number.' ('.$transaction->order->id.')');
+        else $this->log('Failed to Authorize order '.$transaction->order->id.'. Klarna responded with '.$response->getCode().': '.$response->getMessage());
+        */
+        return $response->get()->redirect_url;
+    }
+
+    /**
+     * Returns the full store URL
+     *
+     * @return string
+     * @throws \craft\errors\SiteNotFoundException
+     */
+    public function getStoreUrl()
+    {
+        $siteUrl = UrlHelper::baseUrl();
+        if(!UrlHelper::isAbsoluteUrl($siteUrl))
+        {
+            $myUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] && !in_array(strtolower($_SERVER['HTTPS']),['off','no'])) ? 'https' : 'http';
+            $myUrl .= '://'.$_SERVER['HTTP_HOST'];
+            $siteUrl = $myUrl.$siteUrl;
+        }
+
+        return $siteUrl;
+    }
 
 	/**
 	 * @param Address $address
